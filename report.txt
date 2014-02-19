@@ -1,0 +1,106 @@
+NOTE-
+Attached are two jars with following specification .
+
+1) PageRank.jar -  As per TA reply on piaza ,where title with ":" are considerd to genrate the outlink graph
+
+
+2) PageRank1.tar- Since the results are not seem that apt, another jar is attached where title with ":" are 
+                  not considerd to genrate graph 
+
+
+########## Steps Taken to develop the code #####################################################################
+
+Job1##
+
+First Mapper -extract Page Title and Associated outlinks to Reducer   
+Takes in input key value pair as LongWritable and Text with content of the page in value and process it to find links to other pages in the page. The key value is read from XML file using XML parser from Mahout as XmlInputFormat. No checks are placed for validity of wiki links. Following processing is done in the mapper process.
+1. For each Page in title, a key value pair with key as PageTitle and Value as "!" is emitted to reducer. This is done to remove all pages which are red links. Hence redlinks these entry will not be found.
+2. For each outlinks in a page a key value with key as outlink and value as page title is emitted to reducer. Also to check for duplicate outlinks in the same page, a HashSet to keep a track of all pages so far added is used.
+
+First Reducer - Removing Red links.  
+For Each of the key emitted by mapper all values are iterated and added to Arraylist. If the page found is not a red link all the entries in arraylist are emitted by reducer using key as value from mapper and value as key from Reducer. Hence the values are inverted as recieved from mapper if the links are valid. 
+
+Second Mapper --
+For each of the key Value emitted by the Reducer of Job1 , mapper extracts pagetitle and outlink and emits it to reducer.
+Second Reducer:
+For each Key and iterator emitted by mapper a graph  of following form is generated.
+Format:
+pageTitle inlink1 inlink2 inlink3 ... inlinkn.
+
+
+Job2##
+
+a) MapReduce job to compute the total number of pages N
+
+For the file so generated from Job1 total number of titles need to estimated. For this, for each of the page titles encountered, mapper emits all values with same key. So as the count for same key can be estimated in reducer Phase.
+
+
+Job3###
+
+MapReduce job that performs PageRank for exactly 8 iterations. This job take input a link graph, update the PageRank
+of each page using the propagation formula, and output a new link graph.The PageRank will become more accurate after multiple runs.
+
+Mapper-
+From outlink graph prouce by Job1 we  emit Page1, Page2,PageRank , Number of Outlinks of Page where Page2 is inlink
+of the Page1 . We also emit ! to track for each valid Page and  Page1|All Outlinks which we need to genrate outlink
+graph again for next iteration.  
+
+Reducer-
+For each Key pair to calculate total rank of a Page we use follwing formula.
+   PR(N)=(1-d)/N + d* sigma(PR(A)/Outlink)
+   Where PR(N)= PageRank of Page N
+         d=damping Factor
+         sigma = sum for all pages 
+         outlink =  Number of Outlinks of Page A
+
+We run Job3 8 times and after each iteration more accurate PageRank  is obtained 
+
+Job4##
+
+Mapper-
+This job uses the input  Job from page3 to get the page and rank. And map the key: rank to value: page. 
+To do sorting on reverse order we multiply key to -1 .So Hadoop will do sorting in descending order. 
+
+Reducer-
+In this pahse we multipy values to -1  to get original value and emit to reducer to final output.
+So Final output is All the Page sorted on their PageRank in descending Order
+
+######Difficulties Faced and Their solution ##########################################################################
+a) RedLink Removal
+
+   For each Page in title, a key value pair with key as PageTitle and Value as "!" is emitted to reducer. This
+   is done to remove all pages which are red links. Hence redlinks these entry will not be found.
+
+b) Dead (Sink) Page Handling
+   We add a dummy value ! for each page .So If a key has only one value as ! , this means this is the Page which has no outgoing
+   link and using all the inlink page we had calulated it's rank 
+
+c) ## Merge the output in a single file ##
+   Merging multiple files into one file during combine out links phase. We  have used 
+   FileUtil.copyMerge utility to merge files into one file 
+
+
+############Learning from this project ##############################################################################
+
+a) Better understading of Map reduce programming paradigm which help in solving Big data Challenege
+   and keep me upfront with upcoming technology
+ 
+b) Insight of page ranking algorithm which help us to understand how modern search engine work.
+
+c) Sound understanding of distributed enviorment and use of distributed systems to solve computational problems
+
+d) XML API of Mahout Framwork 
+
+####################################################################################################################
+please highlight any optimizations you have done beyond following the implementation of the steps
+
+- We use hashset for checking duplicate record before adding to Outlink graph instead of iterating whole set which has
+ constant time O(1)  complexity
+
+####################################################################################################################
+Work Division:
+ 
+IshaDutta Yadav(54931916) 	-- Job 4, Job 5
+Atul Garg(94432505)		-- Job 1, Job 2, Job3.
+
+####################################################################################################################
